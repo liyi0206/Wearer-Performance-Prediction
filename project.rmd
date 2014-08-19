@@ -1,8 +1,8 @@
 Jawbone Up Wearer Performance Prediction
 ========================================================
 -- Course Project for Practical Machine Learning
-
-
+-------------------------
+(c) 2014 Yi Li
 
 Project Description:
 
@@ -18,7 +18,6 @@ Six young health participants were asked to perform one set of 10 repetitions of
 Project Approaches:
 
 First is to import the datasets, and set the dependent variable "classe" aside. 
-
 ```{r}
 library(caret)
 pml.training <- read.csv("C:/Users/BenBen/Documents/Google Drive/coursera-Data Science Specialization/08_PracticalMachineLearning/project/pml-training.csv", na.strings = c("NA", ""))
@@ -26,6 +25,8 @@ pml.testing <- read.csv("C:/Users/BenBen/Documents/Google Drive/coursera-Data Sc
 classe=pml.training$classe
 ```
 
+Preprocessing
+-------------------------
 The basic preprocessing
 
 ```{r}
@@ -45,7 +46,7 @@ pml.training0=pml.training
 #4 factor to dummy **don't need
 ```
 
-The advanced preprocessing (which is not used as they don't improve the prediction accuracy)
+The advanced preprocessing (which is not used as they don't improve the prediction accuracy). 
 ```{r}
 ### extra
 #1 impute
@@ -66,8 +67,12 @@ pml.training_=predict(pca,pml.training)
 pml.training3=cbind(pml.training_,classe)
 ```
 
-
+Modeling
+-------------------------
 Here is the main model part. I used the two best performing models RF and GBM.
+Take the first model for example, I checked the in-sample accuracy and out-of-sample accuracy.
+
+As it takes hours for the models to run, I embeded only static (not dynamic) R codes here. 
 ```
 ### model
 set.seed(12345)
@@ -76,37 +81,35 @@ pml.train<- pml.training0[inTrain, ]
 pml.test <- pml.training0[-inTrain,]  
 modFit1<-train(pml.train$classe~.,data=pml.train,method="rf")
 modFit2<-train(pml.train$classe~.,data=pml.train,method="gbm")
-```
-
-
-check the in-sample accuracy and out-of-sample accuracy.
-
-```
 #in sample accuracy
 modFit1
-modFit1$results
-max(modFit1$results$Accuracy)
 #out sample accuracy
-pred <-predict(modFit1,pml.test)
-pml.test$predRight<-pred==pml.test$classe
-table(pred,pml.test$classe)
-postResample(pred,pml.test$classe) #same1
-confusionMatrix(pred,pml.test$classe) #same2
+pred1<-predict(modFit1,pml.test)
+confusionMatrix(pred1,pml.test$classe) 
 ```
 
 
-As the accuracy is very high, this model could apply to predict the 20 rows of new data. 
+Here are the codes to ensemble the two models, but as the models take hours to run and the RF model could already perform 99%+ accuracy, I didn't implement these at last. 
 ```
-### pred
-pred2<-predict(modFit1,pml.testing)
-pml.testing.2<-pml.testing
-pml.testing.2$classe<-pred2
+### ensembling
+pred1<-predict(modFit1,pml.test)
+pred2<-predict(modFit2,pml.test)
+predDF<- data.frame(pred1,pred2,actual=pml.test$classe)
+combModFit<-train(pml.test$classe~.,method="rf",data=predDF)
+combPred <- predict(combModFit,predDF)
+#contrast
+sum(pred1==pml.test$classe)/length(pred1)
+sum(pred2==pml.test$classe)/length(pred2)
+sum(combPred==pml.test$classe)/length(combPred)
 ```
 
 
-Finally output the results.
+Apply modFit1 directly to predict the 20 rows of new data, and export. 
 ```
-### export
+### apply to new data & export
+pred_classe<-predict(modFit1,pml.testing)
+pred_classe
+# export
 pml_write_files = function(x) {
   n = length(x)
   for (i in 1:n) {
@@ -114,6 +117,5 @@ pml_write_files = function(x) {
     write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
   }
 }
-answers <- pml.testing.2$classe
-pml_write_files(answers)
+pml_write_files(pred_classe)
 ```
