@@ -181,7 +181,9 @@ hljs.initHighlightingOnLoad();
 <body>
 <h1>Jawbone Up Wearer Performance Prediction</h1>
 
-<p>&ndash; Course Project for Practical Machine Learning</p>
+<h2>&ndash; Course Project for Practical Machine Learning</h2>
+
+<p>&copy; 2014 Yi Li</p>
 
 <p>Project Description:</p>
 
@@ -214,6 +216,8 @@ pml.testing &lt;- read.csv(&quot;C:/Users/BenBen/Documents/Google Drive/coursera
 classe=pml.training$classe
 </code></pre>
 
+<h2>Preprocessing</h2>
+
 <p>The basic preprocessing</p>
 
 <pre><code class="r">### basic
@@ -232,7 +236,7 @@ pml.training0=pml.training
 #4 factor to dummy **don&#39;t need
 </code></pre>
 
-<p>The advanced preprocessing (which is not used as they don&#39;t improve the prediction accuracy)</p>
+<p>The advanced preprocessing (which is not used as they don&#39;t improve the prediction accuracy). </p>
 
 <pre><code class="r">### extra
 #1 impute
@@ -246,51 +250,7 @@ pml.training2=cbind(pml.training,classe)
 ## check corr
 M &lt;- abs(cor(pml.training))
 diag(M) &lt;- 0
-which(M &gt; 0.8,arr.ind=T)
-</code></pre>
-
-<pre><code>##                  row col
-## yaw_belt           6   4
-## total_accel_belt   7   4
-## accel_belt_y      12   4
-## accel_belt_z      13   4
-## accel_belt_x      11   5
-## magnet_belt_x     14   5
-## roll_belt          4   6
-## roll_belt          4   7
-## accel_belt_y      12   7
-## accel_belt_z      13   7
-## pitch_belt         5  11
-## magnet_belt_x     14  11
-## roll_belt          4  12
-## total_accel_belt   7  12
-## accel_belt_z      13  12
-## roll_belt          4  13
-## total_accel_belt   7  13
-## accel_belt_y      12  13
-## pitch_belt         5  14
-## accel_belt_x      11  14
-## gyros_arm_y       22  21
-## gyros_arm_x       21  22
-## magnet_arm_x      27  24
-## accel_arm_x       24  27
-## magnet_arm_z      29  28
-## magnet_arm_y      28  29
-## accel_dumbbell_x  37  31
-## accel_dumbbell_z  39  32
-## gyros_dumbbell_z  36  34
-## gyros_forearm_z   49  34
-## gyros_dumbbell_x  34  36
-## gyros_forearm_z   49  36
-## pitch_dumbbell    31  37
-## yaw_dumbbell      32  39
-## gyros_forearm_z   49  48
-## gyros_dumbbell_x  34  49
-## gyros_dumbbell_z  36  49
-## gyros_forearm_y   48  49
-</code></pre>
-
-<pre><code class="r">which(M &gt; 0.9,arr.ind=T)
+which(M &gt; 0.9,arr.ind=T)
 </code></pre>
 
 <pre><code>##                  row col
@@ -324,7 +284,12 @@ pml.training_=predict(pca,pml.training)
 pml.training3=cbind(pml.training_,classe)
 </code></pre>
 
-<p>Here is the main model part. I used the two best performing models RF and GBM.</p>
+<h2>Modeling</h2>
+
+<p>Here is the main model part. I used the two best performing models RF and GBM.
+Take the first model for example, I checked the in-sample accuracy and out-of-sample accuracy.</p>
+
+<p>As it takes hours for the models to run, I embeded only static (not dynamic) R codes here. </p>
 
 <pre><code>### model
 set.seed(12345)
@@ -333,6 +298,41 @@ pml.train&lt;- pml.training0[inTrain, ]
 pml.test &lt;- pml.training0[-inTrain,]  
 modFit1&lt;-train(pml.train$classe~.,data=pml.train,method=&quot;rf&quot;)
 modFit2&lt;-train(pml.train$classe~.,data=pml.train,method=&quot;gbm&quot;)
+#in sample accuracy
+modFit1
+#out sample accuracy
+pred1&lt;-predict(modFit1,pml.test)
+confusionMatrix(pred1,pml.test$classe) 
+</code></pre>
+
+<p>Here are the codes to ensemble the two models, but as the models take hours to run and the RF model could already perform 99%+ accuracy, I didn&#39;t implement these at last. </p>
+
+<pre><code>### ensembling
+pred1&lt;-predict(modFit1,pml.test)
+pred2&lt;-predict(modFit2,pml.test)
+predDF&lt;- data.frame(pred1,pred2,actual=pml.test$classe)
+combModFit&lt;-train(pml.test$classe~.,method=&quot;rf&quot;,data=predDF)
+combPred &lt;- predict(combModFit,predDF)
+#contrast
+sum(pred1==pml.test$classe)/length(pred1)
+sum(pred2==pml.test$classe)/length(pred2)
+sum(combPred==pml.test$classe)/length(combPred)
+</code></pre>
+
+<p>Apply modFit1 directly to predict the 20 rows of new data, and export. </p>
+
+<pre><code>### apply to new data &amp; export
+pred_classe&lt;-predict(modFit1,pml.testing)
+pred_classe
+# export
+pml_write_files = function(x) {
+  n = length(x)
+  for (i in 1:n) {
+    filename = paste0(&quot;C:/Users/BenBen/Documents/Google Drive/coursera-Data Science Specialization/08_PracticalMachineLearning/project/problem_id_&quot;,i,&quot;.txt&quot;)
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(pred_classe)
 </code></pre>
 
 </body>

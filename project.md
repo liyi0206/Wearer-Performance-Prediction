@@ -1,8 +1,8 @@
 Jawbone Up Wearer Performance Prediction
 ========================================================
 -- Course Project for Practical Machine Learning
-
-
+-------------------------
+(c) 2014 Yi Li
 
 Project Description:
 
@@ -39,6 +39,8 @@ pml.testing <- read.csv("C:/Users/BenBen/Documents/Google Drive/coursera-Data Sc
 classe=pml.training$classe
 ```
 
+Preprocessing
+-------------------------
 The basic preprocessing
 
 
@@ -59,7 +61,7 @@ pml.training0=pml.training
 #4 factor to dummy **don't need
 ```
 
-The advanced preprocessing (which is not used as they don't improve the prediction accuracy)
+The advanced preprocessing (which is not used as they don't improve the prediction accuracy). 
 
 ```r
 ### extra
@@ -74,52 +76,6 @@ pml.training2=cbind(pml.training,classe)
 ## check corr
 M <- abs(cor(pml.training))
 diag(M) <- 0
-which(M > 0.8,arr.ind=T)
-```
-
-```
-##                  row col
-## yaw_belt           6   4
-## total_accel_belt   7   4
-## accel_belt_y      12   4
-## accel_belt_z      13   4
-## accel_belt_x      11   5
-## magnet_belt_x     14   5
-## roll_belt          4   6
-## roll_belt          4   7
-## accel_belt_y      12   7
-## accel_belt_z      13   7
-## pitch_belt         5  11
-## magnet_belt_x     14  11
-## roll_belt          4  12
-## total_accel_belt   7  12
-## accel_belt_z      13  12
-## roll_belt          4  13
-## total_accel_belt   7  13
-## accel_belt_y      12  13
-## pitch_belt         5  14
-## accel_belt_x      11  14
-## gyros_arm_y       22  21
-## gyros_arm_x       21  22
-## magnet_arm_x      27  24
-## accel_arm_x       24  27
-## magnet_arm_z      29  28
-## magnet_arm_y      28  29
-## accel_dumbbell_x  37  31
-## accel_dumbbell_z  39  32
-## gyros_dumbbell_z  36  34
-## gyros_forearm_z   49  34
-## gyros_dumbbell_x  34  36
-## gyros_forearm_z   49  36
-## pitch_dumbbell    31  37
-## yaw_dumbbell      32  39
-## gyros_forearm_z   49  48
-## gyros_dumbbell_x  34  49
-## gyros_dumbbell_z  36  49
-## gyros_forearm_y   48  49
-```
-
-```r
 which(M > 0.9,arr.ind=T)
 ```
 
@@ -156,8 +112,12 @@ pml.training_=predict(pca,pml.training)
 pml.training3=cbind(pml.training_,classe)
 ```
 
-
+Modeling
+-------------------------
 Here is the main model part. I used the two best performing models RF and GBM.
+Take the first model for example, I checked the in-sample accuracy and out-of-sample accuracy.
+
+As it takes hours for the models to run, I embeded only static (not dynamic) R codes here. 
 ```
 ### model
 set.seed(12345)
@@ -166,4 +126,41 @@ pml.train<- pml.training0[inTrain, ]
 pml.test <- pml.training0[-inTrain,]  
 modFit1<-train(pml.train$classe~.,data=pml.train,method="rf")
 modFit2<-train(pml.train$classe~.,data=pml.train,method="gbm")
+#in sample accuracy
+modFit1
+#out sample accuracy
+pred1<-predict(modFit1,pml.test)
+confusionMatrix(pred1,pml.test$classe) 
+```
+
+
+Here are the codes to ensemble the two models, but as the models take hours to run and the RF model could already perform 99%+ accuracy, I didn't implement these at last. 
+```
+### ensembling
+pred1<-predict(modFit1,pml.test)
+pred2<-predict(modFit2,pml.test)
+predDF<- data.frame(pred1,pred2,actual=pml.test$classe)
+combModFit<-train(pml.test$classe~.,method="rf",data=predDF)
+combPred <- predict(combModFit,predDF)
+#contrast
+sum(pred1==pml.test$classe)/length(pred1)
+sum(pred2==pml.test$classe)/length(pred2)
+sum(combPred==pml.test$classe)/length(combPred)
+```
+
+
+Apply modFit1 directly to predict the 20 rows of new data, and export. 
+```
+### apply to new data & export
+pred_classe<-predict(modFit1,pml.testing)
+pred_classe
+# export
+pml_write_files = function(x) {
+  n = length(x)
+  for (i in 1:n) {
+    filename = paste0("C:/Users/BenBen/Documents/Google Drive/coursera-Data Science Specialization/08_PracticalMachineLearning/project/problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(pred_classe)
 ```
